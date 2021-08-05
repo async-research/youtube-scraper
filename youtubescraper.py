@@ -5,7 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 import pandas as pd 
-import time, json, datetime, os
+import time, json, datetime, os, tqdm
 
 
 class YouTubeScraper:
@@ -27,7 +27,7 @@ class YouTubeScraper:
         self._driver.maximize_window()
         self._wait = WebDriverWait(self._driver, wait)
 
-    def search(self, search_query='rickroll', meta_data=False, save=False, directory='scrapes', scale=0):
+    def search(self, search_query='rickroll', meta_data=False, comments=False, save=False, directory='searches', scale=0):
         """
         Search for videos on YouTube 
 
@@ -51,6 +51,7 @@ class YouTubeScraper:
         if not os.path.isdir(path):
             os.mkdir(path)
 
+
         url = "https://www.youtube.com/results?search_query="+search_query
         self._driver.get(url)
         for i in range(scale): 
@@ -65,11 +66,7 @@ class YouTubeScraper:
                 videos.append(video_id)
 
         if meta_data and len(videos) > 0:
-            videos_dataframe = self.create_search_dataframe(videos) 
-            if save and not videos_dataframe.empty:
-                videos_dataframe.to_csv(os.path.join(path,f"query_{search_query.replace(' ','-')}_results.csv"))
-                print("Successfully saved search results DataFrame!")
-
+            videos_dataframe = self.videoScraper(search_query, videos, path, comments=comments, save=save) 
             return videos_dataframe
         else:
             return videos
@@ -87,7 +84,8 @@ class YouTubeScraper:
         """
 
         url = "https://www.youtube.com/watch?v="+videoID
-        self._driver.get(url)
+        if self._driver.current_url != url:
+            self._driver.get(url)
         data = {}
         likes_element = self._wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "ytd-menu-renderer.ytd-video-primary-info-renderer > div:nth-child(1) > ytd-toggle-button-renderer:nth-child(1) > a:nth-child(1) > yt-formatted-string:nth-child(2)")))
         likes_attribute = likes_element.get_attribute('aria-label')
@@ -105,10 +103,6 @@ class YouTubeScraper:
             if dislikes_attribute.isnumeric():
                data['dislikes'] = int(dislikes_attribute)
 
-        if "likes" not in data.keys():
-            data['likes'] = -999
-        if "dislikes" not in data.keys():
-            data['dislikes'] = -999
 
         json_str = ""
         ytInitial = script_element.get_attribute("innerHTML").replace("var ytInitialPlayerResponse = ","")
@@ -125,16 +119,16 @@ class YouTubeScraper:
         data['uploadDate'] = datetime.datetime.strptime(dump['microformat']['playerMicroformatRenderer']['uploadDate'],"%Y-%m-%d")
         return data
 
-    def get_comments(self, videoID, directory="comments", save=False, scale=3):
-        comments =[]
+    def get_comments(self, videoID, save=False, scale=3):
         cur_dir = os.getcwd()
-        path = os.path.join(cur_dir, directory)
-
+        path = os.path.join(cur_dir, "comments")
         if not os.path.isdir(path):
             os.mkdir(path)
-
         url = "https://www.youtube.com/watch?v="+videoID
-        self._driver.get(url)  
+        comments =[]
+        if self._driver.current_url != url:
+            self._driver.get(url) 
+
         for i in range(scale): 
             time.sleep(1)
             self._wait.until(EC.visibility_of_element_located((By.TAG_NAME, "body"))).send_keys(Keys.PAGE_DOWN) 
@@ -152,9 +146,9 @@ class YouTubeScraper:
                 post['content'] = comment.find_element_by_id("content-text").text
                 post['likes']  = comment.find_element_by_id("vote-count-middle").text
                 comments.append(post)
-                print(post)
+               
             comments_df = pd.DataFrame(comments, columns=['author','likes','content'])
-            print(comments_df)
+           
 
         except Exception as e:
             print(f"Unable to retrieve comments from {videoID}.")
@@ -162,20 +156,36 @@ class YouTubeScraper:
             if save:
                 save_path = os.path.join(path, f"videoID_{videoID}.csv")
                 comments_df.to_csv(save_path)
+          
 
+            
 
-    def create_search_dataframe(self, videos):
+    def videoScraper(self, search_query, videos, path, comments=False, save=False):
         results = []
-        for video_id in videos:
+        for video_id in tqdm.tqdm(videos):
             try:
                 data = self.get_video_meta_data(video_id)
             except Exception as e:
-                print("Error Detected! ", e)
+                print(f"Could not process video meta data for: {video_id}")
+                print(e)
             else:
-                print(data)
-                results.append(data)
-                time.sleep(1)
-        return pd.DataFrame(results, columns=['videoID','likes','dislikes','viewCount','uploadDate','category'])
+                results.append(data)  
+
+            if comments:
+                try:
+                    self.get_comments(video_id, save=save)
+                except Exception as e:
+                    print(f"Could not process comments for : {video_id}")
+                    print(e)
+
+            time.sleep(.5)
+
+        videos_dataframe = pd.DataFrame(results, columns=['videoID','likes','dislikes','viewCount','uploadDate','category'])
+
+        if save and not videos_dataframe.empty:
+            videos_dataframe.to_csv(os.path.join(path,f"query_{search_query.replace(' ','-')}_results.csv"))
+            print("Successfully saved search results DataFrame!")
+        return videos_dataframe
 
     def close(self):
         """
@@ -191,11 +201,8 @@ def main():
     """
     yt = YouTubeScraper('./chromedriver', headless=False)
     print("Scraping...")
-    result = yt.search(search_query="Nature", meta_data=True, save=True)
-    for i in range(len(result['videoID'])):
-        yt.get_comments(result['videoID'][i], save=True)
-      
-   
+    result = yt.search(search_query="Nature", meta_data=True, comments=True, save=True)
+    result2 = yt.search(search_query="Memes", meta_data=True)
     yt.close()
     print(result)
     print("Web Scrape Complete!")
