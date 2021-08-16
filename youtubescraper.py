@@ -114,8 +114,13 @@ class YouTubeScraper:
 
         dump = json.loads(json_str[:len(json_str)-1])
         data['videoID'] = dump['videoDetails']['videoId']
+        data['title'] = dump['videoDetails']['title']
+        data['keywords'] = dump['videoDetails'].get('keywords')
+        data['shortDescription'] = dump['videoDetails']['shortDescription']
         data['viewCount'] = dump['microformat']['playerMicroformatRenderer']['viewCount']
         data['category'] = dump['microformat']['playerMicroformatRenderer']['category']
+        data['isUnlisted'] = dump['microformat']['playerMicroformatRenderer']['isUnlisted']
+        data['publishDate'] = datetime.datetime.strptime(dump['microformat']['playerMicroformatRenderer']['publishDate'],"%Y-%m-%d")
         data['uploadDate'] = datetime.datetime.strptime(dump['microformat']['playerMicroformatRenderer']['uploadDate'],"%Y-%m-%d")
         return data
 
@@ -162,7 +167,7 @@ class YouTubeScraper:
 
     def videoScraper(self, search_query, videos, path, comments=False, save=False):
         results = []
-        for video_id in tqdm.tqdm(videos):
+        for video_id in tqdm.tqdm(videos, desc=search_query, dynamic_ncols=True):
             try:
                 data = self.get_video_meta_data(video_id)
             except Exception as e:
@@ -180,7 +185,9 @@ class YouTubeScraper:
 
             time.sleep(.5)
 
-        videos_dataframe = pd.DataFrame(results, columns=['videoID','likes','dislikes','viewCount','uploadDate','category'])
+        videos_dataframe = pd.DataFrame(results, columns=['videoID','title','likes','dislikes','viewCount',
+                                                          'keywords','shortDescription', 'isUnlisted', 
+                                                          'publishDate','uploadDate','category'])
 
         if save and not videos_dataframe.empty:
             videos_dataframe.to_csv(os.path.join(path,f"query_{search_query.replace(' ','-')}_results.csv"))
@@ -201,10 +208,10 @@ def main():
     """
     yt = YouTubeScraper('./chromedriver', headless=False)
     print("Scraping...")
-    result = yt.search(search_query="Nature", meta_data=True, comments=True, save=True)
-    result2 = yt.search(search_query="Memes", meta_data=True)
+    yt.search(search_query="Big Chungus", meta_data=True, save=True)
+    yt.search(search_query="Amoung us", meta_data=True, save=True)
+    yt.search(search_query="Sus", meta_data=True, save=True)
     yt.close()
-    print(result)
     print("Web Scrape Complete!")
     
 if __name__ == "__main__":
