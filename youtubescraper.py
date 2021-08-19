@@ -208,9 +208,8 @@ def main():
     """
     yt = YouTubeScraper('./chromedriver', headless=False)
     print("Scraping...")
-    yt.search(search_query="Big Chungus", meta_data=True, save=True)
+    yt.search(search_query="Big Chungus", meta_data=True, comments=True, save=True)
     yt.search(search_query="Amoung us", meta_data=True, save=True)
-    yt.search(search_query="Sus", meta_data=True, save=True)
     yt.close()
     print("Web Scrape Complete!")
     
