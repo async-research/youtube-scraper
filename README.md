@@ -11,9 +11,9 @@ more. Search results can then be exported to a .csv file.
 
 ### Dependencies
 Python 3<br>
-Tested On: Mac OSX<br>
-Untested On: Linux, Windows 10<br>
-Selenium and chrome driver must be installed.
+Tested On: Mac OSX, Windows10<br>
+Untested On: Linux<br>
+Selenium, Chrome, and the chrome driver must be installed.
 
 
 
@@ -22,10 +22,12 @@ Selenium and chrome driver must be installed.
 
 Move your chrome driver to the same directory as the youtubescraper script. 
 Run youtubescraper.py to test and see how the program works. 
-Import the program to another script to conduct a custom webscrape and save
-to disk. 
+#### Software Requirements
+* https://www.google.com/chrome/
 * https://chromedriver.chromium.org/
 * ```pip install selenium```
+
+#### Running the program
 ```
 python3 youtubescraper.py
 ```
